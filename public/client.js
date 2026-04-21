@@ -12,6 +12,8 @@ import {
 
 // Signal to the fallback in index.html that the module graph loaded successfully.
 window.__OURTOWN_READY__ = true;
+const _loadStatus = document.getElementById('loadStatus');
+if (_loadStatus) _loadStatus.remove();
 
 // ─── Game state ───────────────────────────────────────────────────────────────
 
@@ -26,15 +28,20 @@ const MOVE_INTERVAL = 1000 / MOVE_HZ;
 
 // ─── Login ────────────────────────────────────────────────────────────────────
 
+console.log('[ourtown] client module loaded');
+
 loginForm.addEventListener('submit', e => {
   e.preventDefault();
+  console.log('[ourtown] submit clicked');
   const name = document.getElementById('name').value.trim();
   const pass = document.getElementById('pass').value;
-  loginError.textContent = '';
+  loginError.textContent = 'Connecting…';
   loginForm.querySelector('button').disabled = true;
 
   net = connect(name, pass, {
+    open: () => { console.log('[ourtown] ws open'); loginError.textContent = 'Logging in…'; },
     'login-error': ({ reason }) => {
+      console.warn('[ourtown] login-error:', reason);
       loginError.textContent = reason;
       loginForm.querySelector('button').disabled = false;
     },
@@ -42,23 +49,31 @@ loginForm.addEventListener('submit', e => {
       toast(reason, 4000);
       setTimeout(() => location.reload(), 3000);
     },
-    welcome: ({ you, slots, players, config }) => {
-      me = { name: you.name, color: you.color, x: you.x, z: you.z };
-      others = players.filter(p => p.name !== me.name);
+    welcome: (msg) => {
+      console.log('[ourtown] welcome', msg);
+      try {
+        const { you, slots, players, config } = msg;
+        me = { name: you.name, color: you.color, x: you.x, z: you.z };
+        others = players.filter(p => p.name !== me.name);
 
-      hideLogin();
-      showHud();
-      setYouTag(me.name, me.color);
-      updatePlayerList(others);
+        hideLogin();
+        showHud();
+        setYouTag(me.name, me.color);
+        updatePlayerList(others);
 
-      buildWorld(slots, config);
+        buildWorld(slots, config);
 
-      myAvatar = makeAvatar(me.name, me.color, true);
-      myAvatar.position.set(me.x, 0, me.z);
-      positionCamera(myAvatar.position);
+        myAvatar = makeAvatar(me.name, me.color, true);
+        myAvatar.position.set(me.x, 0, me.z);
+        positionCamera(myAvatar.position);
 
-      for (const p of others) spawnRemote(p);
-      renderer.setAnimationLoop(tick);
+        for (const p of others) spawnRemote(p);
+        renderer.setAnimationLoop(tick);
+      } catch (err) {
+        console.error('[ourtown] welcome handler threw:', err);
+        loginError.textContent = 'Init error: ' + err.message;
+        loginForm.querySelector('button').disabled = false;
+      }
     },
 
     'player-joined': ({ player }) => {
@@ -87,8 +102,20 @@ loginForm.addEventListener('submit', e => {
     'module-removed': ({ slotId, moduleId }) => removeModuleMeshById(slotId, moduleId),
     'claim-error': ({ reason }) => toast(reason),
 
-    close: () => toast('Disconnected — reload to reconnect.', 8000),
-    error: () => { loginError.textContent = 'Connection failed.'; loginForm.querySelector('button').disabled = false; },
+    close: (ev) => {
+      console.warn('[ourtown] ws close', ev);
+      if (!me) {
+        loginError.textContent = 'Connection closed before login completed.';
+        loginForm.querySelector('button').disabled = false;
+      } else {
+        toast('Disconnected — reload to reconnect.', 8000);
+      }
+    },
+    error: (ev) => {
+      console.error('[ourtown] ws error', ev);
+      loginError.textContent = 'Connection failed. Is the server running?';
+      loginForm.querySelector('button').disabled = false;
+    },
   });
 });
 
