@@ -227,37 +227,26 @@ function tick(timeMs) {
   lastTime = timeMs;
 
   if (me && myAvatar) {
-    // Movement is disabled while editing your house so you don't wander
-    // off-screen from the locked build-mode camera.
-    if (!buildState.active) {
-      _moveDir.x = 0; _moveDir.z = 0;
-      if (isDown('KeyW') || isDown('ArrowUp'))    { _moveDir.x += SCREEN_FWD.x; _moveDir.z += SCREEN_FWD.z; }
-      if (isDown('KeyS') || isDown('ArrowDown'))  { _moveDir.x -= SCREEN_FWD.x; _moveDir.z -= SCREEN_FWD.z; }
-      if (isDown('KeyD') || isDown('ArrowRight')) { _moveDir.x += SCREEN_RGT.x; _moveDir.z += SCREEN_RGT.z; }
-      if (isDown('KeyA') || isDown('ArrowLeft'))  { _moveDir.x -= SCREEN_RGT.x; _moveDir.z -= SCREEN_RGT.z; }
+    _moveDir.x = 0; _moveDir.z = 0;
+    if (isDown('KeyW') || isDown('ArrowUp'))    { _moveDir.x += SCREEN_FWD.x; _moveDir.z += SCREEN_FWD.z; }
+    if (isDown('KeyS') || isDown('ArrowDown'))  { _moveDir.x -= SCREEN_FWD.x; _moveDir.z -= SCREEN_FWD.z; }
+    if (isDown('KeyD') || isDown('ArrowRight')) { _moveDir.x += SCREEN_RGT.x; _moveDir.z += SCREEN_RGT.z; }
+    if (isDown('KeyA') || isDown('ArrowLeft'))  { _moveDir.x -= SCREEN_RGT.x; _moveDir.z -= SCREEN_RGT.z; }
 
-      const len = Math.hypot(_moveDir.x, _moveDir.z);
-      if (len > 0) {
-        me.x += (_moveDir.x / len) * SPEED * dt;
-        me.z += (_moveDir.z / len) * SPEED * dt;
-        myAvatar.position.set(me.x, 0, me.z);
-        myAvatar.rotation.y = Math.atan2(_moveDir.x, _moveDir.z);
-      }
-
-      if (timeMs - lastMoveAt > MOVE_INTERVAL) {
-        net?.send({ type: 'move', x: me.x, z: me.z });
-        lastMoveAt = timeMs;
-      }
+    const len = Math.hypot(_moveDir.x, _moveDir.z);
+    if (len > 0) {
+      me.x += (_moveDir.x / len) * SPEED * dt;
+      me.z += (_moveDir.z / len) * SPEED * dt;
+      myAvatar.position.set(me.x, 0, me.z);
+      myAvatar.rotation.y = Math.atan2(_moveDir.x, _moveDir.z);
     }
 
-    // Camera target: slot center when editing, else follow the player.
-    if (buildState.active) {
-      const entry = slotMap.get(buildState.slotId);
-      if (entry) positionCamera({ x: entry.data.x, y: 0, z: entry.data.z });
-    } else {
-      positionCamera(myAvatar.position);
+    if (timeMs - lastMoveAt > MOVE_INTERVAL) {
+      net?.send({ type: 'move', x: me.x, z: me.z });
+      lastMoveAt = timeMs;
     }
 
+    positionCamera(myAvatar.position);
     updateContextPrompt();
   }
 

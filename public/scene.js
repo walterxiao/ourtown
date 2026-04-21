@@ -9,7 +9,7 @@ scene.background = new THREE.Color(0x7fb8e8);
 scene.fog = new THREE.Fog(0x7fb8e8, 120, 280);
 
 export const VIEW_DEFAULT = 32;   // normal roaming zoom
-export const VIEW_BUILD   = 28;   // build-mode zoom (lot fills screen)
+export const VIEW_BUILD   = 20;   // zoomed-in so the 40 m lot fills the screen
 
 let viewSize = VIEW_DEFAULT;
 
