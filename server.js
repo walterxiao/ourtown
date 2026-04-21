@@ -10,7 +10,7 @@ const STATE_FILE = path.join(__dirname, 'state.json');
 const PASSCODE = 'xiao';
 const AUTOSAVE_MS = 30_000;
 
-const SLOT_SIZE = 20;      // meters per slot edge
+const SLOT_SIZE = 40;      // meters per slot edge
 const ROAD_WIDTH = 6;
 const SLOT_ROWS = 2;
 const SLOT_COLS = 5;
@@ -36,9 +36,26 @@ function createInitialSlots() {
 
 let state;
 try {
-  state = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
-  if (!Array.isArray(state.slots) || state.slots.length !== SLOT_ROWS * SLOT_COLS) {
-    throw new Error('state shape mismatch');
+  const loaded = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+  const expectedCount = SLOT_ROWS * SLOT_COLS;
+  const sameShape = Array.isArray(loaded.slots)
+    && loaded.slots.length === expectedCount
+    && loaded.slots[0]?.size === SLOT_SIZE;
+
+  if (sameShape) {
+    state = loaded;
+  } else {
+    // Slot size or layout changed: regenerate, but preserve ownership
+    // so returning players keep their claim. Modules are cleared because
+    // their grid coords were sized for the old layout.
+    console.warn('[ourtown] slot layout changed; preserved ownership, cleared modules.');
+    const freshSlots = createInitialSlots();
+    const oldById = new Map((loaded.slots || []).map(s => [s.id, s]));
+    for (const s of freshSlots) {
+      const old = oldById.get(s.id);
+      if (old?.ownerName) s.ownerName = old.ownerName;
+    }
+    state = { slots: freshSlots };
   }
 } catch {
   state = { slots: createInitialSlots() };
