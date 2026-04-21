@@ -8,7 +8,11 @@ export const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x7fb8e8);
 scene.fog = new THREE.Fog(0x7fb8e8, 120, 280);
 
-const VIEW = 32;
+export const VIEW_DEFAULT = 32;   // normal roaming zoom
+export const VIEW_BUILD   = 28;   // build-mode zoom (lot fills screen)
+
+let viewSize = VIEW_DEFAULT;
+
 export const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 1000);
 
 // Camera sits at (+X +Y +Z) from target — true 45° isometric (yaw=45°, pitch≈35°)
@@ -24,12 +28,15 @@ export function resize() {
   const w = window.innerWidth, h = window.innerHeight;
   renderer.setSize(w, h);
   const asp = w / h;
-  camera.left   = -VIEW * asp;
-  camera.right  =  VIEW * asp;
-  camera.top    =  VIEW;
-  camera.bottom = -VIEW;
+  camera.left   = -viewSize * asp;
+  camera.right  =  viewSize * asp;
+  camera.top    =  viewSize;
+  camera.bottom = -viewSize;
   camera.updateProjectionMatrix();
 }
+
+export function setZoom(v) { viewSize = v; resize(); }
+
 window.addEventListener('resize', resize);
 resize();
 

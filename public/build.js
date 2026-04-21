@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { scene, camera } from './scene.js';
+import { scene, camera, setZoom, VIEW_DEFAULT, VIEW_BUILD } from './scene.js';
 import { slotMap } from './world.js';
 
 const CELL = 2;
@@ -44,6 +44,7 @@ export function enterBuild(slotId) {
   _buildGrid(slotId);
   hoverGroup.visible = false;
   gridGroup.visible = true;
+  setZoom(VIEW_BUILD);
 }
 
 export function exitBuild() {
@@ -53,6 +54,7 @@ export function exitBuild() {
   hoverGroup.visible = false;
   gridGroup.visible = false;
   while (gridGroup.children.length) gridGroup.remove(gridGroup.children[0]);
+  setZoom(VIEW_DEFAULT);
 }
 
 export function setTool(kind) {
