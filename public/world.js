@@ -28,23 +28,29 @@ function addGround() {
 function addRoads({ SLOT_SIZE, ROAD_WIDTH, SLOT_ROWS, SLOT_COLS }) {
   const pitchX = SLOT_SIZE + ROAD_WIDTH;
   const pitchZ = SLOT_SIZE + ROAD_WIDTH + 4;
-  const mat = new THREE.MeshLambertMaterial({ color: 0x888888 });
+  const roadMat  = new THREE.MeshLambertMaterial({ color: 0x888888 });
+  const driveMat = new THREE.MeshLambertMaterial({ color: 0xa8a8a8 });
 
-  // Horizontal main road (between the two rows)
+  // Main horizontal road between the two rows (exactly fills the gap, touches
+  // the front edge of every slot on both sides).
   const spanX = (SLOT_COLS - 1) * pitchX + SLOT_SIZE + 30;
-  addBox(spanX, 0.08, ROAD_WIDTH + 4, mat, 0, 0.04, 0);
+  addBox(spanX, 0.08, ROAD_WIDTH + 4, roadMat, 0, 0.04, 0);
 
-  // Vertical access lane per column
-  const spanZ = (SLOT_ROWS - 1) * pitchZ + SLOT_SIZE + 30;
+  // Per-slot driveway: a 2.5 × 3 m pad leading from the main road into the
+  // front edge of the slot. Row 0 is north of the road (driveway on south
+  // edge of slot), row 1 is south of the road (driveway on north edge).
+  const driveW = 2.5, driveLen = 3;
+  const halfSlot = SLOT_SIZE / 2;
   for (let col = 0; col < SLOT_COLS; col++) {
     const cx = (col - (SLOT_COLS - 1) / 2) * pitchX;
-    addBox(ROAD_WIDTH - 2, 0.08, spanZ, mat, cx, 0.04, 0);
+    for (let row = 0; row < SLOT_ROWS; row++) {
+      const cz = (row - (SLOT_ROWS - 1) / 2) * pitchZ;
+      const sign = row === 0 ? +1 : -1;               // direction from slot center toward road
+      const frontZ = cz + sign * halfSlot;            // slot's road-facing edge
+      const driveCenterZ = frontZ - sign * (driveLen / 2);
+      addBox(driveW, 0.1, driveLen, driveMat, cx, 0.06, driveCenterZ);
+    }
   }
-
-  // Sidewalk kerbs (slightly lighter strip at slot edges)
-  const kerbMat = new THREE.MeshLambertMaterial({ color: 0xaaaaaa });
-  const kerbW = 1;
-  for (const s of []) { void s; } // placeholder — optional later
 }
 
 function addBox(w, h, d, mat, x, y, z) {
