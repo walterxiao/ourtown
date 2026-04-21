@@ -1,0 +1,37 @@
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color: #fff; background: #0b0f17; }
+canvas#game { position: fixed; inset: 0; display: block; }
+
+.overlay { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(circle at 30% 20%, #1e2a44, #0b0f17 60%); z-index: 10; }
+.panel { background: rgba(20, 25, 40, 0.9); border: 1px solid #2a3350; padding: 24px 28px; border-radius: 12px; width: 320px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+.panel h1 { margin: 0 0 6px; font-size: 28px; letter-spacing: 0.5px; }
+.panel .sub { margin: 0 0 18px; color: #9aa4c2; font-size: 14px; }
+.panel label { display: block; margin-bottom: 12px; font-size: 13px; color: #cdd4ee; }
+.panel input { display: block; width: 100%; margin-top: 4px; padding: 9px 10px; border-radius: 8px; border: 1px solid #2a3350; background: #0f1526; color: #fff; font-size: 14px; }
+.panel input:focus { outline: none; border-color: #4c7dff; }
+.panel button { width: 100%; margin-top: 6px; padding: 10px; border-radius: 8px; border: none; background: #4c7dff; color: #fff; font-weight: 600; cursor: pointer; font-size: 14px; }
+.panel button:hover { background: #5e8cff; }
+.error { margin-top: 10px; color: #ff7676; font-size: 13px; min-height: 18px; }
+
+#hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+#hud > * { pointer-events: auto; }
+
+#topBar { position: absolute; top: 12px; left: 12px; right: 12px; display: flex; justify-content: space-between; gap: 10px; }
+#youTag { background: rgba(15,20,35,0.85); border: 1px solid #2a3350; padding: 6px 10px; border-radius: 8px; font-size: 13px; }
+#playerList { background: rgba(15,20,35,0.85); border: 1px solid #2a3350; padding: 6px 10px; border-radius: 8px; font-size: 13px; max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+#promptBar { position: absolute; left: 50%; transform: translateX(-50%); bottom: 88px; display: flex; gap: 8px; }
+#promptBar button { padding: 10px 14px; border-radius: 8px; border: 1px solid #2a3350; background: rgba(15,20,35,0.9); color: #fff; cursor: pointer; font-size: 14px; }
+#promptBar button:hover { background: #1b2340; }
+
+#buildBar { position: absolute; left: 50%; transform: translateX(-50%); bottom: 20px; background: rgba(15,20,35,0.92); border: 1px solid #2a3350; border-radius: 12px; padding: 10px 14px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+#buildBar .tools { display: flex; gap: 6px; }
+#buildBar .tool { padding: 8px 12px; border-radius: 8px; border: 1px solid #2a3350; background: #0f1526; color: #fff; cursor: pointer; font-size: 13px; }
+#buildBar .tool.active { background: #4c7dff; border-color: #4c7dff; }
+#buildBar .tool:hover { background: #1b2340; }
+#buildBar .tool.active:hover { background: #5e8cff; }
+#buildBar #exitBuild { padding: 6px 12px; border-radius: 8px; border: 1px solid #2a3350; background: transparent; color: #cdd4ee; cursor: pointer; font-size: 12px; }
+#buildBar .hint { color: #9aa4c2; font-size: 12px; }
+
+#toast { position: absolute; top: 60px; left: 50%; transform: translateX(-50%); background: rgba(15,20,35,0.95); border: 1px solid #2a3350; padding: 8px 14px; border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+#toast.show { opacity: 1; }

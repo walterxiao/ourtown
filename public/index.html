@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Our Town</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div id="login" class="overlay">
+    <form id="loginForm" class="panel">
+      <h1>Our Town</h1>
+      <p class="sub">Enter the town.</p>
+      <label>Name<input id="name" autocomplete="off" maxlength="24" required></label>
+      <label>Passcode<input id="pass" type="password" autocomplete="off" required></label>
+      <button type="submit">Enter</button>
+      <div id="loginError" class="error"></div>
+    </form>
+  </div>
+
+  <div id="hud" hidden>
+    <div id="topBar">
+      <div id="youTag"></div>
+      <div id="playerList"></div>
+    </div>
+
+    <div id="promptBar"></div>
+
+    <div id="buildBar" hidden>
+      <div class="tools">
+        <button class="tool" data-tool="wall">Wall</button>
+        <button class="tool" data-tool="door">Door</button>
+        <button class="tool" data-tool="window">Window</button>
+        <button class="tool" data-tool="remove">Remove</button>
+      </div>
+      <button id="exitBuild">Done</button>
+      <div class="hint">Click an edge to place. Keys: 1 wall · 2 door · 3 window · X remove · Esc exit</div>
+    </div>
+
+    <div id="toast"></div>
+  </div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+    }
+  }
+  </script>
+  <script type="module" src="/client.js"></script>
+</body>
+</html>
