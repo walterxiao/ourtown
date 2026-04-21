@@ -10,6 +10,9 @@ import {
   showPromptButtons, clearPrompt, showBuildBar, hideBuildBar, setActiveTool, toast,
 } from './ui.js';
 
+// Signal to the fallback in index.html that the module graph loaded successfully.
+window.__OURTOWN_READY__ = true;
+
 // ─── Game state ───────────────────────────────────────────────────────────────
 
 let me = null;       // { name, color, x, z }

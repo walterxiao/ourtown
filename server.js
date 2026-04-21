@@ -66,11 +66,20 @@ const MIME = {
 };
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
+const THREE_FILE = path.join(__dirname, 'node_modules', 'three', 'build', 'three.module.js');
+
 function serveStatic(req, res) {
   let urlPath = decodeURIComponent(req.url.split('?')[0]);
   if (urlPath === '/') urlPath = '/index.html';
-  const filePath = path.normalize(path.join(PUBLIC_DIR, urlPath));
-  if (!filePath.startsWith(PUBLIC_DIR)) { res.writeHead(403); res.end(); return; }
+
+  let filePath;
+  if (urlPath === '/vendor/three.module.js') {
+    filePath = THREE_FILE;
+  } else {
+    filePath = path.normalize(path.join(PUBLIC_DIR, urlPath));
+    if (!filePath.startsWith(PUBLIC_DIR)) { res.writeHead(403); res.end(); return; }
+  }
+
   fs.readFile(filePath, (err, data) => {
     if (err) { res.writeHead(404); res.end('Not found'); return; }
     const type = MIME[path.extname(filePath).toLowerCase()] || 'application/octet-stream';

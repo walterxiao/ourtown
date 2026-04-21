@@ -45,9 +45,24 @@
   <script type="importmap">
   {
     "imports": {
-      "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+      "three": "/vendor/three.module.js"
     }
   }
+  </script>
+  <script>
+    // Fallback: if the module graph fails to load (blocked CDN, syntax error in a module),
+    // the form would otherwise submit normally and look like "Enter does nothing".
+    document.getElementById('loginForm').addEventListener('submit', (e) => {
+      if (!window.__OURTOWN_READY__) {
+        e.preventDefault();
+        document.getElementById('loginError').textContent =
+          'Game failed to load — check the browser console (⌥⌘I / Ctrl+Shift+I).';
+      }
+    });
+    window.addEventListener('error', (ev) => {
+      const el = document.getElementById('loginError');
+      if (el && !window.__OURTOWN_READY__) el.textContent = 'Load error: ' + (ev.message || 'see console');
+    });
   </script>
   <script type="module" src="/client.js"></script>
 </body>

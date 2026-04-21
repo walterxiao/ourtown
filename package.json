@@ -8,6 +8,7 @@
     "dev": "node server.js"
   },
   "dependencies": {
+    "three": "^0.160.0",
     "ws": "^8.18.0"
   },
   "engines": {
