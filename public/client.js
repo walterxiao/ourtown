@@ -148,25 +148,45 @@ function leaveBuild() {
 // ─── Mouse ────────────────────────────────────────────────────────────────────
 
 const gameCanvas = document.getElementById('game');
-let pointerDownPos = null;
 
-gameCanvas.addEventListener('pointermove', onBuildMouseMove);
+// Build-mode drag-to-place: hold the pointer and sweep across the grid.
+// Each edge/cell/module is acted on at most once per drag.
+let buildDragging = false;
+const placedDuringDrag = new Set();
+
+gameCanvas.addEventListener('pointermove', e => {
+  onBuildMouseMove(e);
+  if (buildDragging) tryDragAction();
+});
 
 gameCanvas.addEventListener('pointerdown', e => {
-  pointerDownPos = { x: e.clientX, y: e.clientY };
+  if (!buildState.active) return;
+  buildDragging = true;
+  placedDuringDrag.clear();
+  try { gameCanvas.setPointerCapture(e.pointerId); } catch {}
+  tryDragAction(); // fire once immediately for a plain click
 });
 
-gameCanvas.addEventListener('pointerup', e => {
-  if (!pointerDownPos) return;
-  const dx = e.clientX - pointerDownPos.x;
-  const dy = e.clientY - pointerDownPos.y;
-  pointerDownPos = null;
-  if (Math.hypot(dx, dy) > 5) return; // drag, not click
-
-  if (buildState.active) {
-    onBuildClick(msg => net?.send(msg));
-  }
+// Listen on document so releasing off-canvas still ends the drag cleanly.
+document.addEventListener('pointerup', () => {
+  buildDragging = false;
+  placedDuringDrag.clear();
 });
+
+function tryDragAction() {
+  onBuildClick(msg => {
+    let key;
+    if (msg.type === 'place-module') {
+      const { ex, ez, orient } = msg.module;
+      key = `p:${ex},${ez},${orient}`;
+    } else if (msg.type === 'remove-module') {
+      key = `r:${msg.moduleId}`;
+    }
+    if (key && placedDuringDrag.has(key)) return;
+    if (key) placedDuringDrag.add(key);
+    net?.send(msg);
+  });
+}
 
 // ─── Context prompt (claim / build) ──────────────────────────────────────────
 
