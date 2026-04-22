@@ -127,17 +127,23 @@ function colorFromName(name) {
 function sanitizeModule(m, slot) {
   if (!m || typeof m !== 'object') return null;
   const kind = String(m.kind);
-  if (!['wall', 'door', 'window'].includes(kind)) return null;
+  if (!['wall', 'door', 'window', 'tree', 'pathway'].includes(kind)) return null;
   const ex = Number(m.ex), ez = Number(m.ez);
-  const orient = m.orient === 'x' ? 'x' : m.orient === 'z' ? 'z' : null;
-  if (!orient) return null;
   if (!Number.isInteger(ex) || !Number.isInteger(ez)) return null;
+
   const cells = Math.round(slot.size / 2);
-  // 'x' edge: ex in [0, cells-1], ez in [0, cells]
-  // 'z' edge: ex in [0, cells], ez in [0, cells-1]
-  const maxEx = orient === 'x' ? cells - 1 : cells;
-  const maxEz = orient === 'x' ? cells : cells - 1;
-  if (ex < 0 || ez < 0 || ex > maxEx || ez > maxEz) return null;
+  const orient = m.orient;
+
+  if (kind === 'tree' || kind === 'pathway') {
+    if (orient !== 'c') return null;
+    if (ex < 0 || ex >= cells || ez < 0 || ez >= cells) return null;
+  } else {
+    if (orient !== 'x' && orient !== 'z') return null;
+    const maxEx = orient === 'x' ? cells - 1 : cells;
+    const maxEz = orient === 'x' ? cells : cells - 1;
+    if (ex < 0 || ez < 0 || ex > maxEx || ez > maxEz) return null;
+  }
+
   return {
     id: Math.random().toString(36).slice(2, 10),
     kind, ex, ez, orient,

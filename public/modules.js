@@ -3,18 +3,21 @@ import * as THREE from 'three';
 const WALL_W = 2, WALL_H = 3, WALL_T = 0.2;
 
 const MAT = {
-  wall:   new THREE.MeshLambertMaterial({ color: 0xe8d5b5 }),
-  door:   new THREE.MeshLambertMaterial({ color: 0xd4a96a }),
-  glass:  new THREE.MeshLambertMaterial({ color: 0x9ec8f0, transparent: true, opacity: 0.55 }),
-  sill:   new THREE.MeshLambertMaterial({ color: 0xe8d5b5 }),
+  wall:    new THREE.MeshLambertMaterial({ color: 0xe8d5b5 }),
+  door:    new THREE.MeshLambertMaterial({ color: 0xd4a96a }),
+  glass:   new THREE.MeshLambertMaterial({ color: 0x9ec8f0, transparent: true, opacity: 0.55 }),
+  sill:    new THREE.MeshLambertMaterial({ color: 0xe8d5b5 }),
+  trunk:   new THREE.MeshLambertMaterial({ color: 0x7a5230 }),
+  leaves:  new THREE.MeshLambertMaterial({ color: 0x3e8b45 }),
+  path:    new THREE.MeshLambertMaterial({ color: 0xb4ab96 }),
 };
 
 function box(w, h, d, mat) {
   return new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
 }
 
-// All module geometry built in 'x' orientation (extends along X, thickness along Z).
-// 'z' orientation rotates the group 90° around Y.
+// Edge modules (wall/door/window) built in 'x' orientation; 'z' rotates 90° about Y.
+// Cell modules (tree/pathway) use orient 'c' and don't rotate.
 function buildContent(g, kind) {
   if (kind === 'wall') {
     const m = box(WALL_W, WALL_H, WALL_T, MAT.wall);
@@ -30,6 +33,16 @@ function buildContent(g, kind) {
     const top = box(WALL_W, 0.9, WALL_T, MAT.sill); top.position.set(0, 2.55, 0);
     const gl  = box(WALL_W - 0.1, 1.0, WALL_T * 0.5, MAT.glass); gl.position.set(0, 1.5, 0);
     g.add(bot, top, gl);
+  } else if (kind === 'tree') {
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.24, 1.3, 8), MAT.trunk);
+    trunk.position.y = 0.65;
+    const canopy = new THREE.Mesh(new THREE.ConeGeometry(0.85, 1.8, 8), MAT.leaves);
+    canopy.position.y = 2.1;
+    g.add(trunk, canopy);
+  } else if (kind === 'pathway') {
+    const tile = box(1.95, 0.06, 1.95, MAT.path);
+    tile.position.y = 0.03;
+    g.add(tile);
   }
 }
 

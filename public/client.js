@@ -1,5 +1,5 @@
 import { renderer, scene, camera, SCREEN_FWD, SCREEN_RGT, positionCamera } from './scene.js';
-import { buildWorld, slotMap, claimSlotVisual, addModuleData, removeModuleMeshById } from './world.js';
+import { buildWorld, slotMap, claimSlotVisual, addModuleData, removeModuleMeshById, isPositionBlocked } from './world.js';
 import { makeAvatar, remoteMap, spawnRemote, removeRemote, setRemoteTarget, lerpRemotes } from './avatar.js';
 import { buildState, enterBuild, exitBuild, setTool, onBuildMouseMove, onBuildClick } from './build.js';
 import { isDown } from './input.js';
@@ -134,7 +134,7 @@ document.getElementById('exitBuild').addEventListener('click', leaveBuild);
 
 document.addEventListener('keydown', e => {
   if (!buildState.active) return;
-  const map = { Digit1: 'wall', Digit2: 'door', Digit3: 'window', KeyX: 'remove' };
+  const map = { Digit1: 'wall', Digit2: 'door', Digit3: 'window', Digit4: 'tree', Digit5: 'pathway', KeyX: 'remove' };
   if (map[e.code]) { setTool(map[e.code]); setActiveTool(map[e.code]); }
   if (e.code === 'Escape') leaveBuild();
 });
@@ -235,8 +235,13 @@ function tick(timeMs) {
 
     const len = Math.hypot(_moveDir.x, _moveDir.z);
     if (len > 0) {
-      me.x += (_moveDir.x / len) * SPEED * dt;
-      me.z += (_moveDir.z / len) * SPEED * dt;
+      const dx = (_moveDir.x / len) * SPEED * dt;
+      const dz = (_moveDir.z / len) * SPEED * dt;
+
+      // Axis-separated collision: try X first, then Z, so you slide along walls.
+      if (!isPositionBlocked(me.x + dx, me.z)) me.x += dx;
+      if (!isPositionBlocked(me.x, me.z + dz)) me.z += dz;
+
       myAvatar.position.set(me.x, 0, me.z);
       myAvatar.rotation.y = Math.atan2(_moveDir.x, _moveDir.z);
     }

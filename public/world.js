@@ -140,11 +140,62 @@ function _placeMesh(entry, mod) {
   const half = entry.data.size / 2;
   if (mod.orient === 'x') {
     mesh.position.set(-half + (mod.ex + 0.5) * CELL, 0, -half + mod.ez * CELL);
-  } else {
+  } else if (mod.orient === 'z') {
     mesh.position.set(-half + mod.ex * CELL, 0, -half + (mod.ez + 0.5) * CELL);
+  } else { // 'c' — cell center
+    mesh.position.set(-half + (mod.ex + 0.5) * CELL, 0, -half + (mod.ez + 0.5) * CELL);
   }
   entry.modulesGroup.add(mesh);
   entry.moduleMeshes.set(mod.id, mesh);
+}
+
+// ─── Collision ────────────────────────────────────────────────────────────────
+// Walls, windows, and trees block movement. Doors and pathways are passable.
+
+const TREE_RADIUS = 0.55;
+
+export function isPositionBlocked(x, z, playerRadius = 0.45) {
+  for (const entry of slotMap.values()) {
+    const { data } = entry;
+    const reach = data.size / 2 + 2;
+    if (Math.abs(data.x - x) > reach || Math.abs(data.z - z) > reach) continue;
+
+    const half = data.size / 2;
+    const ox = data.x - half;
+    const oz = data.z - half;
+
+    for (const mod of data.modules) {
+      if (mod.kind === 'door' || mod.kind === 'pathway') continue;
+
+      if (mod.orient === 'c') {
+        // Tree: circle-vs-circle
+        const cx = ox + (mod.ex + 0.5) * CELL;
+        const cz = oz + (mod.ez + 0.5) * CELL;
+        if (Math.hypot(x - cx, z - cz) < playerRadius + TREE_RADIUS) return true;
+      } else {
+        // Wall/window: point-to-segment
+        let ax, az, bx, bz;
+        if (mod.orient === 'x') {
+          ax = ox + mod.ex * CELL;         az = oz + mod.ez * CELL;
+          bx = ox + (mod.ex + 1) * CELL;   bz = az;
+        } else {
+          ax = ox + mod.ex * CELL;         az = oz + mod.ez * CELL;
+          bx = ax;                          bz = oz + (mod.ez + 1) * CELL;
+        }
+        if (_segDist(x, z, ax, az, bx, bz) < playerRadius + 0.1) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function _segDist(px, pz, ax, az, bx, bz) {
+  const dx = bx - ax, dz = bz - az;
+  const lenSq = dx * dx + dz * dz;
+  if (lenSq === 0) return Math.hypot(px - ax, pz - az);
+  let t = ((px - ax) * dx + (pz - az) * dz) / lenSq;
+  if (t < 0) t = 0; else if (t > 1) t = 1;
+  return Math.hypot(px - (ax + t * dx), pz - (az + t * dz));
 }
 
 function _removeMesh(entry, moduleId) {
