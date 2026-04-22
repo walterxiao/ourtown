@@ -8,8 +8,8 @@ export const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x7fb8e8);
 scene.fog = new THREE.Fog(0x7fb8e8, 120, 280);
 
-export const VIEW_DEFAULT = 32;   // normal roaming zoom
-export const VIEW_BUILD   = 20;   // zoomed-in so the 40 m lot fills the screen
+export const VIEW_DEFAULT = 56;   // normal roaming zoom
+export const VIEW_BUILD   = 40;   // zoomed-in so the 80 m lot fills the screen
 
 let viewSize = VIEW_DEFAULT;
 

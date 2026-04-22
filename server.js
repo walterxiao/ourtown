@@ -10,7 +10,7 @@ const STATE_FILE = path.join(__dirname, 'state.json');
 const PASSCODE = 'xiao';
 const AUTOSAVE_MS = 30_000;
 
-const SLOT_SIZE = 40;      // meters per slot edge
+const SLOT_SIZE = 80;      // meters per slot edge
 const ROAD_WIDTH = 6;
 const SLOT_ROWS = 2;
 const SLOT_COLS = 5;

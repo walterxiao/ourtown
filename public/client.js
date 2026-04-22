@@ -22,7 +22,7 @@ let myAvatar = null;
 let net = null;
 let others = [];     // other players for UI list
 
-const SPEED = 8;           // m/s
+const SPEED = 12;          // m/s (scaled up for the larger 80 m lots)
 const MOVE_HZ = 12;        // server move updates per second
 const MOVE_INTERVAL = 1000 / MOVE_HZ;
 
