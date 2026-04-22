@@ -1,7 +1,7 @@
 import { renderer, scene, camera, SCREEN_FWD, SCREEN_RGT, positionCamera } from './scene.js';
 import { buildWorld, slotMap, claimSlotVisual, addModuleData, removeModuleMeshById, isPositionBlocked } from './world.js';
 import { makeAvatar, remoteMap, spawnRemote, removeRemote, setRemoteTarget, lerpRemotes } from './avatar.js';
-import { buildState, enterBuild, exitBuild, setTool, onBuildMouseMove, onBuildClick } from './build.js';
+import { buildState, enterBuild, exitBuild, setTool, onBuildPointerMove, onBuildPointerDown, onBuildPointerUp } from './build.js';
 import { isDown } from './input.js';
 import { connect } from './network.js';
 import {
@@ -146,47 +146,28 @@ function leaveBuild() {
 }
 
 // ─── Mouse ────────────────────────────────────────────────────────────────────
+// In build mode:
+//   - Mouse move without drag: shows a single-item hover preview
+//   - Mouse down + drag: shows a ghost preview of every item that would be
+//     placed along the line from start to current cursor
+//   - Mouse up: commits all ghosted items as a single batch to the server
 
 const gameCanvas = document.getElementById('game');
 
-// Build-mode drag-to-place: hold the pointer and sweep across the grid.
-// Each edge/cell/module is acted on at most once per drag.
-let buildDragging = false;
-const placedDuringDrag = new Set();
-
 gameCanvas.addEventListener('pointermove', e => {
-  onBuildMouseMove(e);
-  if (buildDragging) tryDragAction();
+  onBuildPointerMove(e);
 });
 
 gameCanvas.addEventListener('pointerdown', e => {
   if (!buildState.active) return;
-  buildDragging = true;
-  placedDuringDrag.clear();
   try { gameCanvas.setPointerCapture(e.pointerId); } catch {}
-  tryDragAction(); // fire once immediately for a plain click
+  onBuildPointerDown(e);
 });
 
-// Listen on document so releasing off-canvas still ends the drag cleanly.
+// Listen on document so releasing off-canvas still commits cleanly.
 document.addEventListener('pointerup', () => {
-  buildDragging = false;
-  placedDuringDrag.clear();
+  onBuildPointerUp(msg => net?.send(msg));
 });
-
-function tryDragAction() {
-  onBuildClick(msg => {
-    let key;
-    if (msg.type === 'place-module') {
-      const { ex, ez, orient } = msg.module;
-      key = `p:${ex},${ez},${orient}`;
-    } else if (msg.type === 'remove-module') {
-      key = `r:${msg.moduleId}`;
-    }
-    if (key && placedDuringDrag.has(key)) return;
-    if (key) placedDuringDrag.add(key);
-    net?.send(msg);
-  });
-}
 
 // ─── Context prompt (claim / build) ──────────────────────────────────────────
 
