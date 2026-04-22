@@ -10,6 +10,8 @@ scene.fog = new THREE.Fog(0x7fb8e8, 120, 280);
 
 export const VIEW_DEFAULT = 56;   // normal roaming zoom
 export const VIEW_BUILD   = 40;   // zoomed-in so the 80 m lot fills the screen
+const ZOOM_MIN = 10;
+const ZOOM_MAX = 180;
 
 let viewSize = VIEW_DEFAULT;
 
@@ -35,7 +37,12 @@ export function resize() {
   camera.updateProjectionMatrix();
 }
 
-export function setZoom(v) { viewSize = v; resize(); }
+export function setZoom(v) {
+  viewSize = v < ZOOM_MIN ? ZOOM_MIN : v > ZOOM_MAX ? ZOOM_MAX : v;
+  resize();
+}
+export function zoomBy(factor) { setZoom(viewSize * factor); }
+export function getViewSize() { return viewSize; }
 
 window.addEventListener('resize', resize);
 resize();

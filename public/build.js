@@ -131,6 +131,17 @@ export function onBuildPointerUp(sendFn) {
   _dragStartZ = null;
 }
 
+// Abort any in-flight drag without committing (used when a pinch gesture
+// takes over from a single-finger drag).
+export function cancelBuildDrag() {
+  if (!_dragActive) return;
+  _dragActive = false;
+  _clearDragPreview();
+  _pendingActions.length = 0;
+  _dragStartX = null;
+  _dragStartZ = null;
+}
+
 // ─── Raycast helper ──────────────────────────────────────────────────────────
 
 function _raycastGround(event) {

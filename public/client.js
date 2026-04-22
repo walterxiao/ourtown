@@ -1,7 +1,7 @@
-import { renderer, scene, camera, SCREEN_FWD, SCREEN_RGT, positionCamera } from './scene.js';
+import { renderer, scene, camera, SCREEN_FWD, SCREEN_RGT, positionCamera, zoomBy } from './scene.js';
 import { buildWorld, slotMap, claimSlotVisual, addModuleData, removeModuleMeshById, isPositionBlocked } from './world.js';
 import { makeAvatar, remoteMap, spawnRemote, removeRemote, setRemoteTarget, lerpRemotes } from './avatar.js';
-import { buildState, enterBuild, exitBuild, setTool, onBuildPointerMove, onBuildPointerDown, onBuildPointerUp } from './build.js';
+import { buildState, enterBuild, exitBuild, setTool, onBuildPointerMove, onBuildPointerDown, onBuildPointerUp, cancelBuildDrag } from './build.js';
 import { isDown } from './input.js';
 import { connect } from './network.js';
 import {
@@ -145,29 +145,63 @@ function leaveBuild() {
   updateContextPrompt();
 }
 
-// ─── Mouse ────────────────────────────────────────────────────────────────────
-// In build mode:
-//   - Mouse move without drag: shows a single-item hover preview
-//   - Mouse down + drag: shows a ghost preview of every item that would be
-//     placed along the line from start to current cursor
-//   - Mouse up: commits all ghosted items as a single batch to the server
+// ─── Mouse / touch ────────────────────────────────────────────────────────────
+// Single pointer → build-mode drag (ghost preview, commit on release).
+// Multi-pointer (pinch) → zoom the camera; cancels any in-flight drag.
+// Wheel / trackpad → zoom the camera.
 
 const gameCanvas = document.getElementById('game');
-
-gameCanvas.addEventListener('pointermove', e => {
-  onBuildPointerMove(e);
-});
+const _activePtrs = new Map();      // pointerId -> { x, y }
+let   _pinchPrevDist = null;
+let   _pinchPrevView = null;
 
 gameCanvas.addEventListener('pointerdown', e => {
+  _activePtrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+  if (_activePtrs.size >= 2) {
+    // Second finger landed: switch to pinch mode and abandon any drag.
+    cancelBuildDrag();
+    const pts = Array.from(_activePtrs.values());
+    _pinchPrevDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    return;
+  }
+
   if (!buildState.active) return;
   try { gameCanvas.setPointerCapture(e.pointerId); } catch {}
   onBuildPointerDown(e);
 });
 
-// Listen on document so releasing off-canvas still commits cleanly.
-document.addEventListener('pointerup', () => {
-  onBuildPointerUp(msg => net?.send(msg));
+gameCanvas.addEventListener('pointermove', e => {
+  const p = _activePtrs.get(e.pointerId);
+  if (p) { p.x = e.clientX; p.y = e.clientY; }
+
+  if (_activePtrs.size >= 2 && _pinchPrevDist !== null) {
+    const pts = Array.from(_activePtrs.values());
+    const d = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    if (d > 0) {
+      zoomBy(_pinchPrevDist / d);   // fingers apart → d grows → factor < 1 → zoom in
+      _pinchPrevDist = d;
+    }
+    return;
+  }
+
+  onBuildPointerMove(e);
 });
+
+function _onPointerEnd(e) {
+  _activePtrs.delete(e.pointerId);
+  if (_activePtrs.size < 2) { _pinchPrevDist = null; _pinchPrevView = null; }
+  if (_activePtrs.size === 0) onBuildPointerUp(msg => net?.send(msg));
+}
+document.addEventListener('pointerup', _onPointerEnd);
+document.addEventListener('pointercancel', _onPointerEnd);
+
+// Wheel / trackpad pinch (macOS sends ctrl+wheel for pinch gestures).
+gameCanvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = Math.exp(e.deltaY * 0.0015);
+  zoomBy(factor);
+}, { passive: false });
 
 // ─── Context prompt (claim / build) ──────────────────────────────────────────
 
