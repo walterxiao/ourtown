@@ -179,7 +179,9 @@ gameCanvas.addEventListener('pointermove', e => {
     const pts = Array.from(_activePtrs.values());
     const d = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
     if (d > 0) {
-      zoomBy(_pinchPrevDist / d);   // fingers apart → d grows → factor < 1 → zoom in
+      // Raise the raw ratio to a power > 1 so small finger movements
+      // cause a larger zoom change (more responsive pinch).
+      zoomBy(Math.pow(_pinchPrevDist / d, 2.2));
       _pinchPrevDist = d;
     }
     return;
@@ -197,9 +199,10 @@ document.addEventListener('pointerup', _onPointerEnd);
 document.addEventListener('pointercancel', _onPointerEnd);
 
 // Wheel / trackpad pinch (macOS sends ctrl+wheel for pinch gestures).
+// Higher coefficient → faster zoom per wheel tick.
 gameCanvas.addEventListener('wheel', e => {
   e.preventDefault();
-  const factor = Math.exp(e.deltaY * 0.0015);
+  const factor = Math.exp(e.deltaY * 0.005);
   zoomBy(factor);
 }, { passive: false });
 
