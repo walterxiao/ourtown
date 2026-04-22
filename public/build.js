@@ -235,10 +235,26 @@ function _rebuildDragPreview(endX, endZ) {
   const dx = endX - _dragStartX;
   const dz = endZ - _dragStartZ;
   const dist = Math.hypot(dx, dz);
-  // Step small enough to not skip a 2 m cell/edge on a diagonal
-  const steps = Math.max(1, Math.ceil(dist / 0.25));
 
-  const seenKeys = new Set();   // drag-level dedupe
+  // Once the drag is long enough to reveal intent, lock to the dominant axis
+  // and the start row/column. This prevents perpendicular walls from spiking
+  // out when the cursor drifts slightly off-axis. A pure click (dist≈0) keeps
+  // freeform behaviour.
+  let lockOrient = null;   // 'x' or 'z' for edge tools
+  let lockRow = null;      // ez when lockOrient === 'x'
+  let lockCol = null;      // ex when lockOrient === 'z'
+  const startGx = (_dragStartX - ox) / CELL;
+  const startGz = (_dragStartZ - oz) / CELL;
+
+  if (dist > 0.6 && tool !== 'remove') {
+    lockOrient = Math.abs(dx) >= Math.abs(dz) ? 'x' : 'z';
+    if (lockOrient === 'x') lockRow = Math.round(startGz);
+    else                    lockCol = Math.round(startGx);
+  }
+
+  // Step small enough not to skip a 2 m cell/edge on a diagonal
+  const steps = Math.max(1, Math.ceil(dist / 0.25));
+  const seenKeys = new Set();
 
   for (let i = 0; i <= steps; i++) {
     const t = steps === 0 ? 0 : i / steps;
@@ -250,16 +266,30 @@ function _rebuildDragPreview(endX, endZ) {
     if (tool === 'remove') {
       _collectRemoveAt(e, ox, oz, sampleX, sampleZ, seenKeys);
     } else if (CELL_TOOLS.has(tool)) {
-      _collectCellAt(tool, ox, oz, gx, gz, cells, seenKeys);
+      _collectCellAt(tool, ox, oz, gx, gz, cells, seenKeys, lockOrient, lockRow, lockCol);
     } else {
-      _collectEdgeAt(tool, ox, oz, gx, gz, cells, seenKeys);
+      _collectEdgeAt(tool, ox, oz, gx, gz, cells, seenKeys, lockOrient, lockRow, lockCol);
     }
   }
 }
 
-function _collectEdgeAt(tool, ox, oz, gx, gz, cells, seen) {
-  const edge = _pickEdge(gx, gz, cells);
-  if (!edge) return;
+function _collectEdgeAt(tool, ox, oz, gx, gz, cells, seen, lockOrient, lockRow, lockCol) {
+  let edge;
+  if (lockOrient === 'x') {
+    const ex = Math.floor(gx);
+    const ez = lockRow;
+    if (ex < 0 || ex >= cells || ez < 0 || ez > cells) return;
+    edge = { ex, ez, orient: 'x' };
+  } else if (lockOrient === 'z') {
+    const ex = lockCol;
+    const ez = Math.floor(gz);
+    if (ex < 0 || ex > cells || ez < 0 || ez >= cells) return;
+    edge = { ex, ez, orient: 'z' };
+  } else {
+    edge = _pickEdge(gx, gz, cells);
+    if (!edge) return;
+  }
+
   const key = `p:${edge.ex},${edge.ez},${edge.orient}`;
   if (seen.has(key)) return;
   seen.add(key);
@@ -278,9 +308,13 @@ function _collectEdgeAt(tool, ox, oz, gx, gz, cells, seen) {
   });
 }
 
-function _collectCellAt(tool, ox, oz, gx, gz, cells, seen) {
-  const cx = Math.floor(gx), cz = Math.floor(gz);
+function _collectCellAt(tool, ox, oz, gx, gz, cells, seen, lockOrient, lockRow, lockCol) {
+  let cx = Math.floor(gx), cz = Math.floor(gz);
+  // Lock the off-axis coordinate so a horizontal drag stays in one row.
+  if (lockOrient === 'x' && lockRow !== null) cz = Math.min(cells - 1, Math.max(0, lockRow));
+  if (lockOrient === 'z' && lockCol !== null) cx = Math.min(cells - 1, Math.max(0, lockCol));
   if (cx < 0 || cx >= cells || cz < 0 || cz >= cells) return;
+
   const key = `p:${cx},${cz},c`;
   if (seen.has(key)) return;
   seen.add(key);
