@@ -8,7 +8,12 @@ import {
   loginForm, loginError,
   hideLogin, showHud, setYouTag, updatePlayerList,
   showPromptButtons, clearPrompt, showBuildBar, hideBuildBar, setActiveTool, toast,
+  updateTdBar, showGameOver, hideGameOver,
 } from './ui.js';
+import {
+  spawnEnemy, moveEnemy, damageEnemy, killEnemy, clearEnemies,
+  lerpEnemies, drawPath, showTowerFire, tickFireEffects, enemyPos,
+} from './enemies.js';
 
 // Signal to the fallback in index.html that the module graph loaded successfully.
 window.__OURTOWN_READY__ = true;
@@ -52,7 +57,7 @@ loginForm.addEventListener('submit', e => {
     welcome: (msg) => {
       console.log('[ourtown] welcome', msg);
       try {
-        const { you, slots, players, config } = msg;
+        const { you, slots, players, config, td: tdState } = msg;
         me = { name: you.name, color: you.color, x: you.x, z: you.z };
         others = players.filter(p => p.name !== me.name);
 
@@ -63,11 +68,20 @@ loginForm.addEventListener('submit', e => {
 
         buildWorld(slots, config);
 
+        if (config.path) drawPath(config.path);
+
         myAvatar = makeAvatar(me.name, me.color, true);
         myAvatar.position.set(me.x, 0, me.z);
         positionCamera(myAvatar.position);
 
         for (const p of others) spawnRemote(p);
+
+        if (tdState) {
+          updateTdBar(tdState);
+          for (const e of tdState.enemies || []) spawnEnemy(e);
+          if (tdState.phase === 'defeat') showGameOver(false);
+        }
+
         renderer.setAnimationLoop(tick);
       } catch (err) {
         console.error('[ourtown] welcome handler threw:', err);
@@ -102,6 +116,23 @@ loginForm.addEventListener('submit', e => {
     'module-removed': ({ slotId, moduleId }) => removeModuleMeshById(slotId, moduleId),
     'claim-error': ({ reason }) => toast(reason),
 
+    // ─── Tower-defense events ───────────────────────────────────────────
+    'td-stats': s => updateTdBar(s),
+    'td-error': ({ reason }) => toast(reason),
+    'td-reset': () => { clearEnemies(); hideGameOver(); toast('Game reset'); },
+    'wave-started': ({ wave, count }) => toast(`Wave ${wave}: ${count} incoming!`),
+    'wave-ended':   ({ wave })        => toast(`Wave ${wave} cleared!`),
+    'game-over':    () => { clearEnemies(); showGameOver(false); },
+    'enemy-spawned':  ({ enemy })     => spawnEnemy(enemy),
+    'enemies-moved':  ({ positions }) => { for (const p of positions) moveEnemy(p.id, p.x, p.z); },
+    'enemy-damaged':  ({ id, hp })    => damageEnemy(id, hp),
+    'enemy-killed':   ({ id })        => killEnemy(id),
+    'enemy-leaked':   ({ id })        => killEnemy(id),
+    'tower-fired':    ({ tx, tz, enemyId }) => {
+      const p = enemyPos(enemyId);
+      if (p) showTowerFire(tx, tz, p.x, p.z);
+    },
+
     close: (ev) => {
       console.warn('[ourtown] ws close', ev);
       if (!me) {
@@ -130,11 +161,24 @@ document.querySelectorAll('#buildBar .tool').forEach(btn => {
 
 document.getElementById('exitBuild').addEventListener('click', leaveBuild);
 
+// TD controls
+document.getElementById('tdStartBtn').addEventListener('click', () => {
+  net?.send({ type: 'start-wave' });
+});
+document.getElementById('tdResetBtn').addEventListener('click', () => {
+  if (confirm('Reset the tower-defense game? (Towers stay; gold/lives/waves reset.)')) {
+    net?.send({ type: 'reset-game' });
+  }
+});
+document.getElementById('gameOverReset').addEventListener('click', () => {
+  net?.send({ type: 'reset-game' });
+});
+
 // ─── Keyboard shortcuts (build mode) ─────────────────────────────────────────
 
 document.addEventListener('keydown', e => {
   if (!buildState.active) return;
-  const map = { Digit1: 'wall', Digit2: 'door', Digit3: 'window', Digit4: 'tree', Digit5: 'pathway', KeyX: 'remove' };
+  const map = { Digit1: 'wall', Digit2: 'door', Digit3: 'window', Digit4: 'tree', Digit5: 'pathway', Digit6: 'tower', KeyX: 'remove' };
   if (map[e.code]) { setTool(map[e.code]); setActiveTool(map[e.code]); }
   if (e.code === 'Escape') leaveBuild();
 });
@@ -294,5 +338,7 @@ function tick(timeMs) {
   }
 
   lerpRemotes(dt);
+  lerpEnemies(dt);
+  tickFireEffects();
   renderer.render(scene, camera);
 }

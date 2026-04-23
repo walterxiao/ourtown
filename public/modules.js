@@ -3,13 +3,15 @@ import * as THREE from 'three';
 const WALL_W = 2, WALL_H = 3, WALL_T = 0.2;
 
 const MAT = {
-  wall:    new THREE.MeshLambertMaterial({ color: 0xe8d5b5 }),
-  door:    new THREE.MeshLambertMaterial({ color: 0xd4a96a }),
-  glass:   new THREE.MeshLambertMaterial({ color: 0x9ec8f0, transparent: true, opacity: 0.55 }),
-  sill:    new THREE.MeshLambertMaterial({ color: 0xe8d5b5 }),
-  trunk:   new THREE.MeshLambertMaterial({ color: 0x7a5230 }),
-  leaves:  new THREE.MeshLambertMaterial({ color: 0x3e8b45 }),
-  path:    new THREE.MeshLambertMaterial({ color: 0xb4ab96 }),
+  wall:       new THREE.MeshLambertMaterial({ color: 0xe8d5b5 }),
+  door:       new THREE.MeshLambertMaterial({ color: 0xd4a96a }),
+  glass:      new THREE.MeshLambertMaterial({ color: 0x9ec8f0, transparent: true, opacity: 0.55 }),
+  sill:       new THREE.MeshLambertMaterial({ color: 0xe8d5b5 }),
+  trunk:      new THREE.MeshLambertMaterial({ color: 0x7a5230 }),
+  leaves:     new THREE.MeshLambertMaterial({ color: 0x3e8b45 }),
+  path:       new THREE.MeshLambertMaterial({ color: 0xb4ab96 }),
+  towerStone: new THREE.MeshLambertMaterial({ color: 0x7c8591 }),
+  towerRoof:  new THREE.MeshLambertMaterial({ color: 0x5a2e2a }),
 };
 
 function box(w, h, d, mat) {
@@ -43,6 +45,14 @@ function buildContent(g, kind) {
     const tile = box(1.95, 0.06, 1.95, MAT.path);
     tile.position.y = 0.03;
     g.add(tile);
+  } else if (kind === 'tower') {
+    // Two-stage stone tower with a pitched roof
+    const base = box(1.7, 1.2, 1.7, MAT.towerStone); base.position.y = 0.6;
+    const mid  = box(1.3, 2.2, 1.3, MAT.towerStone); mid.position.y  = 1.2 + 1.1;
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(1.1, 1.0, 4), MAT.towerRoof);
+    roof.position.y = 1.2 + 2.2 + 0.5;
+    roof.rotation.y = Math.PI / 4;
+    g.add(base, mid, roof);
   }
 }
 

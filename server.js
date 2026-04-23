@@ -15,6 +15,26 @@ const ROAD_WIDTH = 6;
 const SLOT_ROWS = 2;
 const SLOT_COLS = 5;
 
+// ─── Tower-defense constants ─────────────────────────────────────────────────
+const TICK_MS = 50;                   // 20 Hz server tick
+const POS_BROADCAST_MS = 100;         // 10 Hz enemy-position updates
+const TOWER_KIND = 'tower';
+const TOWER_COST = 50;
+const TOWER_RANGE = 16;
+const TOWER_DAMAGE = 20;
+const TOWER_COOLDOWN_MS = 900;
+const ENEMY_HP_BASE = 30;
+const ENEMY_SPEED = 5;                // m/s
+const ENEMY_REWARD = 10;
+const BASE_GOLD = 200;
+const BASE_LIVES = 10;
+
+// Enemies walk the full length of the main east-west road.
+const PATH = [
+  { x: -((SLOT_COLS - 1) / 2) * (SLOT_SIZE + ROAD_WIDTH) - SLOT_SIZE / 2 - 20, z: 0 },
+  { x:  ((SLOT_COLS - 1) / 2) * (SLOT_SIZE + ROAD_WIDTH) + SLOT_SIZE / 2 + 20, z: 0 },
+];
+
 function createInitialSlots() {
   const slots = [];
   const pitchX = SLOT_SIZE + ROAD_WIDTH;
@@ -124,17 +144,19 @@ function colorFromName(name) {
   return `hsl(${hue} 70% 55%)`;
 }
 
+const CELL_KINDS = new Set(['tree', 'pathway', 'tower']);
+
 function sanitizeModule(m, slot) {
   if (!m || typeof m !== 'object') return null;
   const kind = String(m.kind);
-  if (!['wall', 'door', 'window', 'tree', 'pathway'].includes(kind)) return null;
+  if (!['wall', 'door', 'window', 'tree', 'pathway', 'tower'].includes(kind)) return null;
   const ex = Number(m.ex), ez = Number(m.ez);
   if (!Number.isInteger(ex) || !Number.isInteger(ez)) return null;
 
   const cells = Math.round(slot.size / 2);
   const orient = m.orient;
 
-  if (kind === 'tree' || kind === 'pathway') {
+  if (CELL_KINDS.has(kind)) {
     if (orient !== 'c') return null;
     if (ex < 0 || ex >= cells || ez < 0 || ez >= cells) return null;
   } else {
@@ -149,6 +171,158 @@ function sanitizeModule(m, slot) {
     kind, ex, ez, orient,
   };
 }
+
+// ─── Tower-defense runtime ────────────────────────────────────────────────────
+
+const td = {
+  phase: 'idle',       // 'idle' | 'active' | 'victory' | 'defeat'
+  wave: 0,
+  gold: BASE_GOLD,
+  lives: BASE_LIVES,
+  enemies: new Map(),  // id -> { id, x, z, hp, maxHp, speed, pathIdx }
+  spawnQueue: [],      // [{ at: ms, hp }, ...]
+};
+
+// Runtime fire cooldown per tower module id
+const towerLastFired = new Map();
+let lastPosBroadcast = 0;
+
+function tdStatsMsg() {
+  return { type: 'td-stats', phase: td.phase, wave: td.wave, gold: td.gold, lives: td.lives };
+}
+
+function startWave() {
+  if (td.phase !== 'idle') return;
+  td.phase = 'active';
+  td.wave += 1;
+  const count = 10 + (td.wave - 1) * 5;
+  const hp = Math.round(ENEMY_HP_BASE * Math.pow(1.2, td.wave - 1));
+  const now = Date.now();
+  for (let i = 0; i < count; i++) {
+    td.spawnQueue.push({ at: now + i * 900, hp });
+  }
+  broadcast({ type: 'wave-started', wave: td.wave, count });
+  broadcast(tdStatsMsg());
+}
+
+function spawnEnemy(hp) {
+  const e = {
+    id: Math.random().toString(36).slice(2, 10),
+    x: PATH[0].x, z: PATH[0].z,
+    hp, maxHp: hp,
+    speed: ENEMY_SPEED,
+    pathIdx: 1,
+  };
+  td.enemies.set(e.id, e);
+  broadcast({ type: 'enemy-spawned', enemy: e });
+}
+
+function endWave() {
+  td.phase = 'idle';
+  broadcast({ type: 'wave-ended', wave: td.wave });
+  broadcast(tdStatsMsg());
+}
+
+function gameOver() {
+  td.phase = 'defeat';
+  td.enemies.clear();
+  td.spawnQueue.length = 0;
+  broadcast({ type: 'game-over' });
+  broadcast(tdStatsMsg());
+}
+
+function resetTdGame() {
+  td.phase = 'idle';
+  td.wave = 0;
+  td.gold = BASE_GOLD;
+  td.lives = BASE_LIVES;
+  td.enemies.clear();
+  td.spawnQueue.length = 0;
+  towerLastFired.clear();
+  broadcast({ type: 'td-reset' });
+  broadcast(tdStatsMsg());
+}
+
+function tdTick() {
+  const now = Date.now();
+  const dt = TICK_MS / 1000;
+
+  if (td.phase === 'active') {
+    // Spawn queued enemies whose time has arrived
+    while (td.spawnQueue.length && td.spawnQueue[0].at <= now) {
+      spawnEnemy(td.spawnQueue.shift().hp);
+    }
+
+    // Move enemies along the path
+    for (const e of td.enemies.values()) {
+      const target = PATH[e.pathIdx];
+      if (!target) continue;
+      const dx = target.x - e.x;
+      const dz = target.z - e.z;
+      const dist = Math.hypot(dx, dz);
+      const step = e.speed * dt;
+      if (step >= dist) {
+        e.x = target.x; e.z = target.z;
+        e.pathIdx += 1;
+        if (e.pathIdx >= PATH.length) {
+          td.enemies.delete(e.id);
+          td.lives -= 1;
+          broadcast({ type: 'enemy-leaked', id: e.id });
+          broadcast(tdStatsMsg());
+          if (td.lives <= 0) { gameOver(); return; }
+        }
+      } else {
+        e.x += (dx / dist) * step;
+        e.z += (dz / dist) * step;
+      }
+    }
+
+    // Tower combat — iterate every tower module across all slots
+    for (const slot of state.slots) {
+      const half = slot.size / 2;
+      for (const mod of slot.modules) {
+        if (mod.kind !== TOWER_KIND) continue;
+        const lastAt = towerLastFired.get(mod.id) || 0;
+        if (now - lastAt < TOWER_COOLDOWN_MS) continue;
+
+        const tx = slot.x - half + (mod.ex + 0.5) * 2;
+        const tz = slot.z - half + (mod.ez + 0.5) * 2;
+
+        let target = null, bestD = TOWER_RANGE;
+        for (const e of td.enemies.values()) {
+          const d = Math.hypot(e.x - tx, e.z - tz);
+          if (d <= bestD) { bestD = d; target = e; }
+        }
+        if (!target) continue;
+
+        towerLastFired.set(mod.id, now);
+        target.hp -= TOWER_DAMAGE;
+        broadcast({ type: 'tower-fired', towerId: mod.id, tx, tz, enemyId: target.id });
+        if (target.hp <= 0) {
+          td.enemies.delete(target.id);
+          td.gold += ENEMY_REWARD;
+          broadcast({ type: 'enemy-killed', id: target.id });
+          broadcast(tdStatsMsg());
+        } else {
+          broadcast({ type: 'enemy-damaged', id: target.id, hp: target.hp });
+        }
+      }
+    }
+
+    // Batched position broadcast
+    if (now - lastPosBroadcast >= POS_BROADCAST_MS) {
+      lastPosBroadcast = now;
+      const positions = [];
+      for (const e of td.enemies.values()) positions.push({ id: e.id, x: e.x, z: e.z });
+      if (positions.length) broadcast({ type: 'enemies-moved', positions });
+    }
+
+    // Wave completion
+    if (td.spawnQueue.length === 0 && td.enemies.size === 0) endWave();
+  }
+}
+
+setInterval(tdTick, TICK_MS);
 
 wss.on('connection', (ws) => {
   let me = null;
@@ -184,7 +358,15 @@ wss.on('connection', (ws) => {
         you: publicPlayer(me),
         slots: state.slots,
         players: Array.from(players.values(), publicPlayer).filter(p => p.name !== name),
-        config: { SLOT_SIZE, ROAD_WIDTH, SLOT_ROWS, SLOT_COLS },
+        config: {
+          SLOT_SIZE, ROAD_WIDTH, SLOT_ROWS, SLOT_COLS,
+          TOWER_COST, TOWER_RANGE,
+          path: PATH,
+        },
+        td: {
+          phase: td.phase, wave: td.wave, gold: td.gold, lives: td.lives,
+          enemies: Array.from(td.enemies.values()),
+        },
       });
       broadcast({ type: 'player-joined', player: publicPlayer(me) }, ws);
       return;
@@ -220,7 +402,23 @@ wss.on('connection', (ws) => {
       if (!slot || slot.ownerName !== me.name) return;
       const mod = sanitizeModule(msg.module, slot);
       if (!mod) return;
+      // Towers cost shared gold from the party pool.
+      if (mod.kind === TOWER_KIND) {
+        if (td.gold < TOWER_COST) {
+          send(ws, { type: 'td-error', reason: 'Not enough gold for a tower.' });
+          return;
+        }
+        td.gold -= TOWER_COST;
+        broadcast(tdStatsMsg());
+      }
       // Replace any existing module on the same edge.
+      const replaced = slot.modules.find(m => m.ex === mod.ex && m.ez === mod.ez && m.orient === mod.orient);
+      if (replaced?.kind === TOWER_KIND) {
+        // Refund the displaced tower
+        td.gold += TOWER_COST;
+        towerLastFired.delete(replaced.id);
+        broadcast(tdStatsMsg());
+      }
       slot.modules = slot.modules.filter(m => !(m.ex === mod.ex && m.ez === mod.ez && m.orient === mod.orient));
       slot.modules.push(mod);
       markDirty();
@@ -231,12 +429,27 @@ wss.on('connection', (ws) => {
     if (msg.type === 'remove-module') {
       const slot = state.slots.find(s => s.id === msg.slotId);
       if (!slot || slot.ownerName !== me.name) return;
-      const before = slot.modules.length;
+      const removed = slot.modules.find(m => m.id === msg.moduleId);
       slot.modules = slot.modules.filter(m => m.id !== msg.moduleId);
-      if (slot.modules.length !== before) {
+      if (removed) {
+        if (removed.kind === TOWER_KIND) {
+          td.gold += TOWER_COST;   // full refund
+          towerLastFired.delete(removed.id);
+          broadcast(tdStatsMsg());
+        }
         markDirty();
         broadcast({ type: 'module-removed', slotId: slot.id, moduleId: msg.moduleId });
       }
+      return;
+    }
+
+    if (msg.type === 'start-wave') {
+      startWave();
+      return;
+    }
+
+    if (msg.type === 'reset-game') {
+      resetTdGame();
       return;
     }
   });

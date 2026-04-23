@@ -168,10 +168,11 @@ export function isPositionBlocked(x, z, playerRadius = 0.45) {
       if (mod.kind === 'door' || mod.kind === 'pathway') continue;
 
       if (mod.orient === 'c') {
-        // Tree: circle-vs-circle
+        // Tree or tower: circle-vs-circle
         const cx = ox + (mod.ex + 0.5) * CELL;
         const cz = oz + (mod.ez + 0.5) * CELL;
-        if (Math.hypot(x - cx, z - cz) < playerRadius + TREE_RADIUS) return true;
+        const r = mod.kind === 'tower' ? 0.9 : TREE_RADIUS;
+        if (Math.hypot(x - cx, z - cz) < playerRadius + r) return true;
       } else {
         // Wall/window: point-to-segment
         let ax, az, bx, bz;

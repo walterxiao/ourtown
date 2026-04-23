@@ -17,7 +17,22 @@ canvas#game { position: fixed; inset: 0; display: block; }
 #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
 #hud > * { pointer-events: auto; }
 
-#topBar { position: absolute; top: 12px; left: 12px; right: 12px; display: flex; justify-content: space-between; gap: 10px; }
+#topBar { position: absolute; top: 12px; left: 12px; right: 12px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+#tdBar { background: rgba(15,20,35,0.9); border: 1px solid #2a3350; padding: 6px 10px; border-radius: 8px; font-size: 13px; display: flex; gap: 10px; align-items: center; }
+#tdBar .tdMetric { color: #cdd4ee; }
+#tdBar #tdWave  { color: #ffd76a; }
+#tdBar #tdGold  { color: #ffd76a; }
+#tdBar #tdLives { color: #ff7676; }
+#tdBar button { padding: 5px 10px; border-radius: 6px; border: 1px solid #2a3350; background: #1b2340; color: #fff; cursor: pointer; font-size: 12px; }
+#tdBar button:hover { background: #2a3350; }
+#tdBar button.primary { background: #4c7dff; border-color: #4c7dff; }
+#tdBar button.primary:hover { background: #5e8cff; }
+#tdBar button[disabled] { opacity: 0.5; cursor: not-allowed; }
+#gameOver { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: grid; place-items: center; z-index: 20; pointer-events: auto; }
+#gameOver .panel { text-align: center; }
+#gameOver h2 { margin: 0 0 10px; font-size: 26px; }
+#gameOver p { margin: 0 0 16px; color: #cdd4ee; }
+#gameOver button { padding: 10px 18px; border-radius: 8px; border: none; background: #4c7dff; color: #fff; cursor: pointer; font-size: 14px; font-weight: 600; }
 #youTag { background: rgba(15,20,35,0.85); border: 1px solid #2a3350; padding: 6px 10px; border-radius: 8px; font-size: 13px; }
 #playerList { background: rgba(15,20,35,0.85); border: 1px solid #2a3350; padding: 6px 10px; border-radius: 8px; font-size: 13px; max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 

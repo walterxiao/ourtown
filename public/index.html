@@ -24,10 +24,24 @@
   <div id="hud" hidden>
     <div id="topBar">
       <div id="youTag"></div>
+      <div id="tdBar">
+        <span class="tdMetric" id="tdWave">Wave 0</span>
+        <span class="tdMetric" id="tdGold">Gold 200</span>
+        <span class="tdMetric" id="tdLives">Lives 10</span>
+        <button id="tdStartBtn">Start Wave</button>
+        <button id="tdResetBtn" title="Reset game">Reset</button>
+      </div>
       <div id="playerList"></div>
     </div>
 
     <div id="promptBar"></div>
+    <div id="gameOver" hidden>
+      <div class="panel">
+        <h2 id="gameOverTitle">Defeat</h2>
+        <p id="gameOverText">The enemies overran the town.</p>
+        <button id="gameOverReset">Try Again</button>
+      </div>
+    </div>
 
     <div id="buildBar" hidden>
       <div class="tools">
@@ -36,6 +50,7 @@
         <button class="tool" data-tool="window">Window</button>
         <button class="tool" data-tool="tree">Tree</button>
         <button class="tool" data-tool="pathway">Pathway</button>
+        <button class="tool" data-tool="tower">Tower (50g)</button>
         <button class="tool" data-tool="remove">Remove</button>
       </div>
       <button id="exitBuild">Done</button>
